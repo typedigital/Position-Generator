@@ -1,4 +1,4 @@
-const { generateEmailHtml } = require('../catchGHInfo');
+const { generateEmailHtml } = require('../src/services/emailService');
 
 describe('FEATURE: HTML Email Generation', () => {
 

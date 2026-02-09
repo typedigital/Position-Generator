@@ -1,4 +1,4 @@
-const { processIssue } = require('../catchGHInfo');
+const { processIssue } = require('../src/services/issueProcessor');
 
 describe('FEATURE: Issue and Comment Processing', () => {
 

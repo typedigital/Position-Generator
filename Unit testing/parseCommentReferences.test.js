@@ -1,4 +1,4 @@
-const { parseCommentReferences } = require('../catchGHInfo');
+const { parseCommentReferences } = require('../src/utils/githubData');
 
 describe('FEATURE: Point (PT) Reference Parsing', () => {
   
