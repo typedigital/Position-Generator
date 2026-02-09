@@ -2,9 +2,9 @@
   "name": "github-webhook-handler",
   "version": "1.0.0",
   "description": "GitHub webhook handler with security",
-  "main": "catchGHInfo.js",
+  "main": "index.js",
   "scripts": {
-    "start": "node catchGHInfo.js",
+    "start": "node index.js",
     "test": "jest"
   },
   "keywords": [
