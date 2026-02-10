@@ -32,7 +32,6 @@ async function processIssue(issueData) {
             : cleanText;
 
         if (issueData.fullDescription && issueData.fullDescription !== 'No description provided.') {
-            console.log('[PROCESS] Generating Email HTML and sending...');
             issueData.emailHtml = generateEmailHtml(issueData);
             await sendEmail(issueData.emailHtml, issueData.number, issueData.repo);
         }

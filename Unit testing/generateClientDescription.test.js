@@ -17,7 +17,7 @@ jest.mock('@google/generative-ai', () => {
   };
 });
 
-// 4. REQUIRE YOUR CODE AFTER THE MOCK IS DEFINED
+// 4.require your code 
 const { generateClientDescription } = require('../src/services/aiService');
 
 describe('FEATURE: Client-Friendly Description Generation', () => {

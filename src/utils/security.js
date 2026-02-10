@@ -8,7 +8,7 @@ function verifySignature(body, signature) {
         return false;
     }
 
-    // ✨ ПРАВКА: Беремо секрет з env або з конфігу динамічно
+    // use secret from environment variable or config file dinamically
     const secret = process.env.GITHUB_WEBHOOK_SECRET || config.GITHUB_WEBHOOK_SECRET;
 
     if (!secret) {
@@ -22,11 +22,9 @@ function verifySignature(body, signature) {
 
     // crypto.timingSafeEqual prevents timing attacks
     if (checksum.length !== digest.length || !crypto.timingSafeEqual(digest, checksum)) {
-        console.error('[SECURITY] Signature mismatch!');
         return false;
     }
 
-    console.log('[SECURITY] Signature verified.');
     return true;
 }
 

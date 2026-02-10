@@ -1,6 +1,5 @@
 // Extract issue data from GitHub webhook payload
 function extractIssueData(rawData) {
-    console.log('[DATA] Extracting data from incoming payload...');
     let data = Array.isArray(rawData) && rawData[0]?.body ? rawData[0].body : rawData;
     const issue = data.issue || {};
     
@@ -18,18 +17,17 @@ function extractIssueData(rawData) {
         comment: data.comment?.body || ''
     };
 
-    console.log(`[DATA] Target: Issue #${extracted.number} in ${extracted.repo}`);
+
     return extracted;
 }
 
 // Parse comment references for "pt" entries
 function parseCommentReferences(items) {
-    console.log('[PARSE] Scanning comment for "pt" references...');
     for (const item of items) {
         const commentBody = item.json?.body?.comment?.body || item.json?.body || '';
         
         if (!commentBody || !commentBody.toLowerCase().includes('pt')) {
-            console.log('[PARSE] Result: No "pt" keyword found.');
+          
             return { foundEntries: [], message: 'No "pt" found in comment', status: false };
         }
 
@@ -46,11 +44,9 @@ function parseCommentReferences(items) {
         }
 
         if (foundEntries.length > 0) {
-            console.log(`[PARSE] Success: Found ${foundEntries.length} entry/ies.`);
             return { foundEntries, message: 'Entries successfully parsed', status: true };
         }
     }
-    console.log('[PARSE] Result: No valid numeric "pt" entries found.');
     return { foundEntries: [], message: 'No valid entries found', status: false };
 }
 

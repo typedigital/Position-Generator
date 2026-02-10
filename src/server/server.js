@@ -4,21 +4,29 @@ const { processIssue } = require('../services/issueProcessor');
 const { verifySignature } = require('../utils/security');
 const config = require('../config/config');
 
-// Helper function to collect request body
-function getRequestBody(req) {
+const StatusCode = require('../constants/statusCode'); 
+
+
+function getRequestBody(req, limit = 1e6) {
     return new Promise((resolve, reject) => {
         let body = '';
-        req.on('data', chunk => { body += chunk.toString(); });
+        req.on('data', chunk => { 
+            body += chunk.toString(); 
+            if (body.length > limit) {
+                reject(new Error('Payload too large'));
+            }
+        });
         req.on('error', (err) => reject(err));
         req.on('end', () => resolve(body));
     });
 }
 
-// Handle POST request from GitHub Webhook
+ //Handle POST request from GitHub Webhook
+ 
 async function handleRequest(req, res) {
-    // 1. Check URL and Method
+    // 1. Check URL and Method using the Enum-style object
     if (req.url !== '/github/webhook' || req.method !== 'POST') {
-        return res.writeHead(404).end();
+        return res.writeHead(StatusCode.ClientErrorNotFound).end();
     }
 
     try {
@@ -28,8 +36,8 @@ async function handleRequest(req, res) {
 
         // 3. Verify signature
         if (!verifySignature(body, signature)) {
-            console.error('[SECURITY] Invalid signature');
-            return res.writeHead(401).end('Invalid signature');
+            console.warn('[SECURITY] Invalid signature attempt');
+            return res.writeHead(StatusCode.ClientErrorUnauthorized).end('Invalid signature');
         }
 
         // 4. Parse and process data
@@ -38,7 +46,7 @@ async function handleRequest(req, res) {
         const processedData = await processIssue(issueData);
         
         // 5. Success response
-        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.writeHead(StatusCode.SuccessOK, { 'Content-Type': 'application/json' });
         return res.end(JSON.stringify({ 
             status: 'success', 
             fullDescription: processedData.fullDescription,
@@ -47,7 +55,18 @@ async function handleRequest(req, res) {
 
     } catch (error) {
         console.error(`[ERROR] ${error.message}`);
-        return res.writeHead(400).end('Bad Request');
+        
+        // Logic to pick the right status code based on the error
+        let status = StatusCode.ClientErrorBadRequest;
+        
+        if (error.message === 'Payload too large') {
+            status = StatusCode.ClientErrorPayloadTooLarge;
+        } else if (!(error instanceof SyntaxError)) {
+            // If it's not a JSON parsing error, it's likely a server-side logic crash
+            status = StatusCode.ServerErrorInternal;
+        }
+
+        return res.writeHead(status).end(error.message);
     }
 }
 

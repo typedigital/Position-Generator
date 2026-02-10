@@ -14,7 +14,6 @@ function cleanSpecialChars(text) {
 // Generate client description using Gemini API
 async function generateClientDescription(text) {
     if (!text || !text.trim()) {
-        console.log('[AI] Warning: Empty description provided. Skipping AI.');
         return 'No issue description was provided.';
     }
 
@@ -22,12 +21,16 @@ async function generateClientDescription(text) {
 
     for (const modelName of models) {
         try {
-            console.log(`[AI] Attempting short rewrite with ${modelName}...`);
             const model = genAI.getGenerativeModel({ model: modelName });
             
-            const prompt = `Summarize the following GitHub issue into a single, professional paragraph. 
-            Do not use any special characters like asterisks, hashes, dashes, or brackets. 
-            Keep it strictly under 450 characters. Text: ${text}`;
+            const prompt = `Fasse das folgende GitHub-Issue in einem einzigen, professionellen Absatz auf Deutsch zusammen. 
+
+Befolge dabei diese strikten Regeln:
+1. Nenne bis zu 3 Kernpunkte oder Positionen als textliche Aufzählung innerhalb des Absatzes.
+2. Benutze keinerlei Sonderzeichen wie Sternchen, Rauten, Bindestriche, Spiegelstriche oder Klammern.
+3. Der gesamte Text muss unter 450 Zeichen bleiben.
+
+Text: ${text}`;
 
             const result = await model.generateContent(prompt);
             const response = await result.response;
@@ -36,7 +39,7 @@ async function generateClientDescription(text) {
             output = cleanSpecialChars(output);
             output = output.length > 500 ? output.substring(0, 497) + '...' : output;
 
-            console.log(`[AI] SUCCESS: Summary generated (${output.length} chars)`);
+           
             return output;
         } catch (err) {
             console.error(`[AI] FAILURE: ${modelName} failed. Error: ${err.message}`);
