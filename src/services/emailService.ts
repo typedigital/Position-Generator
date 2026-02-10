@@ -107,7 +107,7 @@ export async function sendEmail(
   try {
     const mailOptions = {
       from: config.EMAIL_USER,
-      to: config.EMAIL_RECIPIENT || config.EMAIL_USER,
+      to: config.CUSTOMER_EMAIL || config.EMAIL_USER,
       subject: `Offer #${issueNumber} - ${repo}`,
       html: htmlContent,
     };

@@ -7,7 +7,7 @@ const config = {
     GITHUB_WEBHOOK_SECRET: process.env.GITHUB_WEBHOOK_SECRET || '',
     EMAIL_USER: process.env.EMAIL_USER || '',
     EMAIL_PASS: process.env.EMAIL_PASS || '',
-    EMAIL_RECIPIENT: process.env.EMAIL_RECIPIENT || '',
+    CUSTOMER_EMAIL: process.env.CUSTOMER_EMAIL || '',
     PIPEDRIVE_API_KEY: process.env.PIPEDRIVE_API_KEY || ''
 } as const;
 

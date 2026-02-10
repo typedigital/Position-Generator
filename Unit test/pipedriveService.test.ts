@@ -1,10 +1,17 @@
 import { jest } from '@jest/globals';
 
-
+// GIVEN: Mock the AI service to prevent real API calls
 jest.unstable_mockModule("../src/services/aiService.js", () => ({
   generateClientDescription: jest.fn<() => Promise<string>>().mockResolvedValue("Mocked AI description")
 }));
 
+// GIVEN: Mock the config to include CUSTOMER_EMAIL for the processor
+jest.unstable_mockModule("../src/config/config.js", () => ({
+  default: {
+    CUSTOMER_EMAIL: "test-customer@example.com",
+    PIPEDRIVE_API_KEY: "mock-api-key"
+  }
+}));
 
 const { processIssue } = await import("../src/services/issueProcessor.js");
 
@@ -52,9 +59,7 @@ describe("FEATURE: Issue and Comment Processing", () => {
       // THEN
       expect(result.parsedEntries).toBeDefined();
       if (result.parsedEntries && result.parsedEntries.length > 0) {
-
         expect(result.parsedEntries[0].num).toBe("4");
-     
       }
     });
   });

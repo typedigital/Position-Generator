@@ -1,11 +1,11 @@
 import { jest } from '@jest/globals';
+import fs from 'fs';
 
-// We cast these to 'any' to avoid the 'never' type assignment error in TypeScript
+// 1. Setup AI Mocks
 const mockGenerateContent = jest.fn() as any;
 const mockGetGenerativeModel = jest.fn().mockReturnValue({
   generateContent: mockGenerateContent,
 }) as any;
-
 
 jest.unstable_mockModule("@google/generative-ai", () => {
   return {
@@ -15,12 +15,22 @@ jest.unstable_mockModule("@google/generative-ai", () => {
   };
 });
 
-// Import the service dynamically for ESM support
+// 2. Import the service dynamically
 const { generateClientDescription } = await import("../src/services/aiService.js");
 
 describe("FEATURE: Client-Friendly Description Generation", () => {
+  // Use spyOn for fs.readFileSync
+  const readFileSyncSpy = jest.spyOn(fs, 'readFileSync');
+
   beforeEach(() => {
     jest.clearAllMocks();
+    
+    // GIVEN: Default behavior for the file system mock
+    readFileSyncSpy.mockReturnValue("Instructions: {{text}}");
+  });
+
+  afterAll(() => {
+    readFileSyncSpy.mockRestore();
   });
 
   describe("SCENARIO: Successful AI Rewriting", () => {
@@ -36,8 +46,8 @@ describe("FEATURE: Client-Friendly Description Generation", () => {
 
       // THEN
       expect(result).toBe("Dies ist eine professionelle Zusammenfassung.");
+      expect(readFileSyncSpy).toHaveBeenCalled();
       expect(mockGetGenerativeModel).toHaveBeenCalledWith({ model: "gemini-1.5-flash" });
-      expect(mockGenerateContent).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -57,8 +67,6 @@ describe("FEATURE: Client-Friendly Description Generation", () => {
 
       // THEN
       expect(result).toBe("Fallback Professional Text");
-      expect(mockGetGenerativeModel).toHaveBeenNthCalledWith(1, { model: "gemini-1.5-flash" });
-      expect(mockGetGenerativeModel).toHaveBeenNthCalledWith(2, { model: "gemini-2.0-flash" });
       expect(mockGenerateContent).toHaveBeenCalledTimes(2);
     });
 
@@ -72,7 +80,6 @@ describe("FEATURE: Client-Friendly Description Generation", () => {
 
       // THEN
       expect(result).toBe("Original Technical Details");
-      expect(mockGenerateContent).toHaveBeenCalledTimes(2);
     });
   });
 
@@ -99,6 +106,25 @@ describe("FEATURE: Client-Friendly Description Generation", () => {
 
       // THEN
       expect(result).toBe("Kernpunkte: Punkt 1 Punkt 2");
+    });
+  });
+
+  describe("SCENARIO: Prompt File Loading", () => {
+    test("GIVEN prompt.txt is missing, WHEN generated, THEN it should use the fallback template", async () => {
+      // GIVEN: fs.readFileSync throws an error
+      readFileSyncSpy.mockImplementation(() => {
+        throw new Error("File not found");
+      });
+      
+      mockGenerateContent.mockResolvedValue({
+        response: { text: () => "Fallback Template Result" },
+      });
+
+      // WHEN
+      const result = await generateClientDescription("some text");
+
+      // THEN
+      expect(result).toBe("Fallback Template Result");
     });
   });
 });

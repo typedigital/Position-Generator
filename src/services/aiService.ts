@@ -1,5 +1,9 @@
 import { GoogleGenerativeAI, type GenerativeModel } from "@google/generative-ai";
 import config from "../config/config.js";
+import fs from "fs";
+import path from "path";
+
+
 
 const genAI = new GoogleGenerativeAI(config.GEMINI_API_KEY);
 
@@ -10,10 +14,21 @@ export function cleanSpecialChars(text: string): string {
     .trim();
 }
 
-
 export async function generateClientDescription(text: string | null | undefined): Promise<string> {
   if (!text || !text.trim()) {
     return "No issue description was provided.";
+  }
+
+  // Load the prompt from the .txt file
+ const promptTemplatePath = path.join(process.cwd(), "prompt", "prompt.txt");
+  let promptTemplate: string;
+  
+  try {
+    promptTemplate = fs.readFileSync(promptTemplatePath, "utf-8");
+    console.log(`[AI-SERVICE] Success: Prompt loaded from ${promptTemplatePath}`);
+  } catch (err) {
+    console.error(`[AI-SERVICE] Error: Failed to load prompt.txt. Path attempted: ${promptTemplatePath}`);
+    promptTemplate = "Summarize this: {{text}}"; // Fallback template
   }
 
   const models: string[] = ["gemini-1.5-flash", "gemini-2.0-flash"];
@@ -22,14 +37,8 @@ export async function generateClientDescription(text: string | null | undefined)
     try {
       const model: GenerativeModel = genAI.getGenerativeModel({ model: modelName });
 
-      const prompt = `Fasse das folgende GitHub-Issue in einem einzigen, professionellen Absatz auf Deutsch zusammen. 
-
-        Befolge dabei diese strikten Regeln:
-        1. Nenne bis zu 3 Kernpunkte oder Positionen als textliche Aufzählung innerhalb des Absatzes.
-        2. Benutze keinerlei Sonderzeichen wie Sternchen, Rauten, Bindestriche, Spiegelstriche oder Klammern.
-        3. Der gesamte Text muss unter 450 Zeichen bleiben.
-
-        Text: ${text}`;
+      // Inject the text into the template
+      const prompt = promptTemplate.replace("{{text}}", text);
 
       const result = await model.generateContent(prompt);
       const response = result.response;
@@ -37,15 +46,12 @@ export async function generateClientDescription(text: string | null | undefined)
 
       output = cleanSpecialChars(output);
       
-      // Enforce character limit
       return output.length > 500 ? output.substring(0, 497) + "..." : output;
       
     } catch (err: any) {
       console.error(`[AI] FAILURE: ${modelName} failed. Error: ${err.message}`);
-      // Continue to next model in loop
     }
   }
-
 
   return cleanSpecialChars(text).substring(0, 500);
 }
