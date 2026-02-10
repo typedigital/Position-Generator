@@ -27,7 +27,7 @@ describe('FEATURE: Client-Friendly Description Generation', () => {
   });
 
   describe('SCENARIO: Successful AI Rewriting', () => {
-    test('GIVEN a valid description WHEN the primary model succeeds THEN it should return the AI-generated professional text', async () => {
+    test('GIVEN a valid description ,WHEN the primary model succeeds ,THEN it should return the AI-generated professional text', async () => {
       // GIVEN: The SDK returns a response object with a .text() method
       mockGenerateContent.mockResolvedValue({
         response: { text: () => 'Professional AI Description' }
@@ -46,7 +46,7 @@ describe('FEATURE: Client-Friendly Description Generation', () => {
   });
 
   describe('SCENARIO: Model Failure and Fallback', () => {
-    test('GIVEN the primary model fails WHEN a fallback model is available THEN it should attempt the second model', async () => {
+    test('GIVEN the primary model fails, WHEN a fallback model is available ,THEN it should attempt the second model', async () => {
       // GIVEN: Fail first call, succeed second call
       mockGenerateContent
         .mockRejectedValueOnce(new Error('Primary Down'))
@@ -65,7 +65,7 @@ describe('FEATURE: Client-Friendly Description Generation', () => {
       expect(mockGenerateContent).toHaveBeenCalledTimes(2);
     });
 
-    test('GIVEN all AI models fail WHEN generated THEN it should return the original text', async () => {
+    test('GIVEN all AI models fail ,WHEN generated ,THEN it should return the original text', async () => {
       // GIVEN: All attempts fail
       mockGenerateContent.mockRejectedValue(new Error('API Failure'));
 
@@ -81,7 +81,7 @@ describe('FEATURE: Client-Friendly Description Generation', () => {
   });
 
   describe('SCENARIO: Input Validation', () => {
-    test('GIVEN an empty description WHEN generated THEN it should return placeholder', async () => {
+    test('GIVEN an empty description ,WHEN generated ,THEN it should return placeholder', async () => {
       const issueData = { fullDescription: '' };
       const result = await generateClientDescription(issueData.fullDescription);
       

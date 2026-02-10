@@ -25,7 +25,7 @@ describe('FEATURE: HTML Email Generation & Formatting', () => {
   });
 
   describe('SCENARIO: Successful Generation with Complete Data', () => {
-    test('GIVEN a complete issue dataset WHEN generateEmailHtml is called THEN it should return a German-localized HTML document', () => {
+    test('GIVEN a complete issue dataset ,WHEN generateEmailHtml is called ,THEN it should return a German-localized HTML document', () => {
       const data = {
         number: 42,
         title: 'Fix login bug',
@@ -49,7 +49,7 @@ describe('FEATURE: HTML Email Generation & Formatting', () => {
   });
 
   describe('SCENARIO: Error Handling', () => {
-    test('GIVEN a null dataset WHEN generated THEN it should return a fallback error string instead of crashing', () => {
+    test('GIVEN a null dataset ,WHEN generated ,THEN it should return a fallback error string instead of crashing', () => {
       // This previously caused the TypeError
       const html = generateEmailHtml(null);
       expect(html).toContain('Fehler');

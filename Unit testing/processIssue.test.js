@@ -3,7 +3,7 @@ const { processIssue } = require('../src/services/issueProcessor');
 describe('FEATURE: Issue and Comment Processing', () => {
 
   describe('SCENARIO: Handling issues with existing comments', () => {
-    test('GIVEN an issue with a valid comment string WHEN the issue is processed THEN it should detect the comment and initialize parsedEntries', async () => {
+    test('GIVEN an issue with a valid comment string ,WHEN the issue is processed ,THEN it should detect the comment and initialize parsedEntries', async () => {
       const issueData = {
         title: 'Test Issue',
         number: 1,
@@ -20,7 +20,7 @@ describe('FEATURE: Issue and Comment Processing', () => {
   });
 
   describe('SCENARIO: Handling issues with empty comment strings', () => {
-    test('GIVEN an issue where the comment is an empty string WHEN the issue is processed THEN it should return an empty parsedEntries array and a default client description', async () => {
+    test('GIVEN an issue where the comment is an empty string ,WHEN the issue is processed ,THEN it should return an empty parsedEntries array and a default client description', async () => {
       const issueData = {
         title: 'Test Issue',
         number: 2,
@@ -38,7 +38,7 @@ describe('FEATURE: Issue and Comment Processing', () => {
   });
 
   describe('SCENARIO: Handling issues where the comment field is missing', () => {
-    test('GIVEN an issue object that does not contain a comment property WHEN the issue is processed THEN it should gracefully initialize parsedEntries and the default client description', async () => {
+    test('GIVEN an issue object that does not contain a comment property ,WHEN the issue is processed ,THEN it should gracefully initialize parsedEntries and the default client description', async () => {
       const issueData = {
         title: 'Test Issue',
         number: 3
