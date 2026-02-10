@@ -9,7 +9,7 @@ jest.unstable_mockModule("fs", () => ({
   existsSync: jest.fn().mockReturnValue(true),
 }));
 
-// WHEN: We import the service after mocking fs
+
 const { generateEmailHtml } = await import("../src/services/emailService.js");
 
 describe("FEATURE: HTML Email Generation & Formatting", () => {
@@ -47,7 +47,7 @@ describe("FEATURE: HTML Email Generation & Formatting", () => {
       // WHEN
       const html = generateEmailHtml(input);
       // THEN
-      expect(html).toContain("Fehler: Keine Daten vorhanden.");
+     expect(html).toContain("Error: No data available.");
     });
   });
 });

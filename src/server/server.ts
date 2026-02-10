@@ -2,9 +2,9 @@ import http, { IncomingMessage, ServerResponse } from 'http';
 import { extractIssueData } from '../utils/githubData.js';
 import { processIssue } from '../services/issueProcessor.js';
 import { verifyGitHubSignature } from '../utils/security.js';
+import { createPipedriveDeal } from '../services/pipedriveService.js'; 
 import config from '../config/config.js';
 import { StatusCode } from '../constants/statusCode.js';
-
 
 function getRequestBody(req: IncomingMessage, limit: number = 1e6): Promise<string> {
     return new Promise((resolve, reject) => {
@@ -20,7 +20,6 @@ function getRequestBody(req: IncomingMessage, limit: number = 1e6): Promise<stri
     });
 }
 
-
 export async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise<void> {
     if (req.url !== '/github/webhook' || req.method !== 'POST') {
         res.writeHead(StatusCode.ClientErrorNotFound).end();
@@ -30,8 +29,8 @@ export async function handleRequest(req: IncomingMessage, res: ServerResponse): 
     try {
         const body = await getRequestBody(req);
         const signature = req.headers['x-hub-signature-256'];
+        const eventType = req.headers['x-github-event']; 
 
-        
         if (typeof signature !== 'string' || !verifyGitHubSignature(body, signature)) {
             console.warn('[SECURITY] Invalid signature attempt');
             res.writeHead(StatusCode.ClientErrorUnauthorized).end('Invalid signature');
@@ -41,6 +40,16 @@ export async function handleRequest(req: IncomingMessage, res: ServerResponse): 
         const rawJson = JSON.parse(body);
         const issueData = extractIssueData(rawJson);
         const processedData = await processIssue(issueData);
+
+
+        if (eventType === 'issues' && rawJson.action === 'opened') {
+            try {
+                await createPipedriveDeal(processedData);
+            } catch (pError: any) {
+                console.error(`[PIPEDRIVE ERROR] ${pError.message}`);
+               
+            }
+        }
         
         res.writeHead(StatusCode.SuccessOK, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ 
@@ -64,10 +73,9 @@ export async function handleRequest(req: IncomingMessage, res: ServerResponse): 
     }
 }
 
-
 export function startServer(): void {
     const port = Number(config.PORT) || 3000;
     http.createServer(handleRequest).listen(port, '0.0.0.0', () => {
-        console.log(`🚀 Server listening on port ${port}`);
+        console.log(`Server listening on port ${port}`);
     });
 }
