@@ -44,7 +44,7 @@ export async function processIssue(issueData: ProcessedIssue): Promise<Processed
             ? 'No description provided.' 
             : cleanText;
 
-        // Finalize and Send Email
+   
         if (issueData.fullDescription && issueData.fullDescription !== 'No description provided.') {
             issueData.emailHtml = generateEmailHtml(issueData);
             
