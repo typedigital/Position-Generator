@@ -31,7 +31,7 @@ export async function generateClientDescription(text: string | null | undefined)
     promptTemplate = "Summarize this: {{text}}"; // Fallback template
   }
 
-  const models: string[] = ["gemini-1.5-flash", "gemini-2.0-flash"];
+  const models: string[] = [ "gemini-2.0-flash"];
 
   for (const modelName of models) {
     try {
