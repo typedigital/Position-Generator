@@ -15,7 +15,7 @@ async function getOrCreatePerson(apiToken: string, baseUrl: string): Promise<num
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-            name: "Offer", 
+            name: "GitHub Reporter", 
             email: [email],
             visible_to: "3"
         })
