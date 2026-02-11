@@ -1,85 +1,117 @@
-import { jest } from '@jest/globals';
+import { jest, describe, test, expect, beforeEach } from '@jest/globals';
 
-// GIVEN: Mock the AI service to prevent real API calls
-jest.unstable_mockModule("../src/services/aiService.js", () => ({
-  generateClientDescription: jest.fn<() => Promise<string>>().mockResolvedValue("Mocked AI description")
-}));
 
-// GIVEN: Mock the config to include CUSTOMER_EMAIL for the processor
 jest.unstable_mockModule("../src/config/config.js", () => ({
   default: {
-    CUSTOMER_EMAIL: "test-customer@example.com",
+    CUSTOMER_EMAIL: "client@example.com",
+    EMAIL_USER: "manager@example.com",
     PIPEDRIVE_API_KEY: "mock-api-key"
   }
 }));
 
-const { processIssue } = await import("../src/services/issueProcessor.js");
 
-describe("FEATURE: Issue and Comment Processing", () => {
+jest.unstable_mockModule("../src/services/aiService.js", () => ({
+  generateClientDescription: jest.fn<() => Promise<string>>().mockResolvedValue("Mocked AI description")
+}));
+
+
+global.fetch = jest.fn() as any;
+const mockedFetch = global.fetch as jest.Mock<any>;
+
+// Import the service AFTER mocks are set up
+const { createPipedriveDeal } = await import("../src/services/pipedriveService.js");
+
+describe("FEATURE: Pipedrive Deal Creation with Dynamic Manager Name", () => {
   
   beforeEach(() => {
-    jest.clearAllMocks();
+    mockedFetch.mockClear();
   });
 
-  describe("SCENARIO: Parsing PT references (Dev 4pt Designer 5pt)", () => {
-    test("GIVEN a comment with multiple PT entries, WHEN processed, THEN it should extract all entries correctly", async () => {
-      // GIVEN
-      const issueData = {
-        title: "New Layout UI",
-        number: 101,
-        comment: "Dev 4pt Designer 5pt",
-        fullDescription: "Initial task description"
-      };
+  test("SCENARIO: Successfully create a person using the manager's name and link it to a new deal", async () => {
+    
 
-      // WHEN
-      const result = await processIssue(issueData as any);
+    mockedFetch
+      
+      .mockResolvedValueOnce({
+        json: async () => ({ 
+          success: true, 
+          data: [{ id: 8877, name: "Vasian Manager" }] 
+        })
+      })
+   
+      .mockResolvedValueOnce({
+        json: async () => ({ 
+          success: true, 
+          data: { items: [] } 
+        })
+      })
+   
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ 
+          success: true, 
+          data: { id: 1001 } 
+        })
+      })
+      
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ 
+          success: true, 
+          data: { id: 500 } 
+        })
+      })
+    
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ success: true })
+      });
 
-      // THEN
-      expect(result.parsedEntries).toBeDefined();
-      if (result.parsedEntries) {
-        expect(result.parsedEntries).toHaveLength(2);
-        expect(result.parsedEntries[0]).toMatchObject({ dept: "Dev", num: "4" });
-        expect(result.parsedEntries[1]).toMatchObject({ dept: "Designer", num: "5" });
-      }
-    });
-  });
+    const inputData = { 
+      title: "New", 
+      fullDescription: "AI generated text" 
+    };
 
-  describe("SCENARIO: PT reference with noise words", () => {
-    test("GIVEN a comment with noise words, WHEN processed, THEN it should at least extract the correct number", async () => {
-      // GIVEN
-      const issueData = {
-        title: "Task",
-        number: 104,
-        comment: "Dev and 4pt"
-      };
+    // WHEN
+    const result = await createPipedriveDeal(inputData);
 
-      // WHEN
-      const result = await processIssue(issueData as any);
+    // THEN
+    expect(result.data.id).toBe(500);
 
-      // THEN
-      expect(result.parsedEntries).toBeDefined();
-      if (result.parsedEntries && result.parsedEntries.length > 0) {
-        expect(result.parsedEntries[0].num).toBe("4");
-      }
-    });
-  });
+    // AND
+    const personCreateCall = mockedFetch.mock.calls.find((call: any) => 
+      call[1]?.method === 'POST' && call[0].includes('/persons')
+    ) as [string, RequestInit] | undefined;
 
-  describe("SCENARIO: Handling empty or missing comments", () => {
-    test("GIVEN an issue with an empty comment, WHEN processed, THEN it should return empty entries and default description", async () => {
-      // GIVEN
-      const issueData = {
-        title: "Empty Bug Report",
-        number: 102,
-        comment: "",
-        fullDescription: ""
-      };
+    expect(personCreateCall).toBeDefined();
+    if (personCreateCall && personCreateCall[1]?.body) {
+      const personBody = JSON.parse(personCreateCall[1].body as string);
+      
+      expect(personBody.name).toBe("Vasian Manager"); 
+      expect(personBody.email).toContain("client@example.com");
+    }
 
-      // WHEN
-      const result = await processIssue(issueData as any);
+    // AND
+    const dealCreateCall = mockedFetch.mock.calls.find((call: any) => 
+      call[1]?.method === 'POST' && call[0].includes('/deals')
+    ) as [string, RequestInit] | undefined;
 
-      // THEN
-      expect(result.parsedEntries).toEqual([]);
-      expect(result.clientDescription).toBeDefined();
-    });
+    expect(dealCreateCall).toBeDefined();
+    if (dealCreateCall && dealCreateCall[1]?.body) {
+      const dealBody = JSON.parse(dealCreateCall[1].body as string);
+      expect(dealBody.person_id).toBe(1001); 
+      expect(dealBody.user_id).toBe(8877);   
+      expect(dealBody.title).toBe("New"); 
+    }
+
+    // AND
+    const noteCreateCall = mockedFetch.mock.calls.find((call: any) => 
+        call[1]?.method === 'POST' && call[0].includes('/notes')
+    ) as [string, RequestInit] | undefined;
+
+    if (noteCreateCall && noteCreateCall[1]?.body) {
+        const noteBody = JSON.parse(noteCreateCall[1].body as string);
+        expect(noteBody.content).toBe("AI generated text");
+    }
   });
 });
