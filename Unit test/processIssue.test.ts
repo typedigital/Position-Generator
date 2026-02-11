@@ -1,9 +1,8 @@
-import { jest } from '@jest/globals';
+import { jest } from "@jest/globals";
 
 const { processIssue } = await import("../src/services/issueProcessor.js");
 
 describe("FEATURE: Issue and Comment Processing", () => {
-  
   beforeEach(() => {
     jest.clearAllMocks();
   });

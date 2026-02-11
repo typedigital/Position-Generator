@@ -21,7 +21,6 @@
  * @public
  */
 enum StatusCode {
-
   /**
    * The server cannot or will not process the request due to an apparent
    * client error (e.g., malformed request syntax, size too large, invalid
@@ -474,7 +473,7 @@ enum StatusCode {
    * content. Unlike a 204 response, this response requires that the requester
    * reset the document view.
    */
-  SuccessResetContent = 205
+  SuccessResetContent = 205,
 }
 
 /**

@@ -1,8 +1,8 @@
-import nodemailer from 'nodemailer';
-import path from 'path';
-import fs from 'fs';
-import { fileURLToPath } from 'url';
-import config from '../config/config.js';
+import nodemailer from "nodemailer";
+import path from "path";
+import fs from "fs";
+import { fileURLToPath } from "url";
+import config from "../config/config.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -16,7 +16,7 @@ export interface EmailData {
   repo: string;
   url: string;
   created?: string;
-  parsedEntries?: Array<{ dept?: string | null; num: string | number }>; 
+  parsedEntries?: Array<{ dept?: string | null; num: string | number }>;
 }
 
 let cachedTemplate: string | null = null;
@@ -29,13 +29,12 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-
 function getTemplatePath(): string {
   const pathsToTry = [
     path.resolve(__dirname, "..", "Email template", "email.html"),
     path.resolve(process.cwd(), "src", "Email template", "email.html"),
     path.resolve(process.cwd(), "dist", "Email template", "email.html"),
-    path.resolve(process.cwd(), "Email template", "email.html")
+    path.resolve(process.cwd(), "Email template", "email.html"),
   ];
 
   for (const p of pathsToTry) {
@@ -46,16 +45,16 @@ function getTemplatePath(): string {
 export function generateEmailHtml(data: EmailData | null | undefined): string {
   if (!data) return "<p>Error: No data available.</p>";
 
-  
   let ptValue = "N/A";
   if (data.parsedEntries && data.parsedEntries.length > 0) {
     ptValue = data.parsedEntries
-      .map((entry) => (entry.dept ? `${entry.dept} ${entry.num}` : String(entry.num)))
+      .map((entry) =>
+        entry.dept ? `${entry.dept} ${entry.num}` : String(entry.num),
+      )
       .join(" ");
   }
 
   try {
- 
     if (!cachedTemplate) {
       const templatePath = getTemplatePath();
       cachedTemplate = fs.readFileSync(templatePath, "utf8");
@@ -63,17 +62,15 @@ export function generateEmailHtml(data: EmailData | null | undefined): string {
 
     let html = cachedTemplate;
 
- 
     const eventDate = data.created ? new Date(data.created) : new Date();
-    const formattedDate = isNaN(eventDate.getTime()) 
-      ? "N/A" 
+    const formattedDate = isNaN(eventDate.getTime())
+      ? "N/A"
       : eventDate.toLocaleDateString("de-DE", {
-          day: '2-digit',
-          month: '2-digit',
-          year: 'numeric'
+          day: "2-digit",
+          month: "2-digit",
+          year: "numeric",
         });
 
-    
     const replacements: Record<string, string> = {
       "{{issueNumber}}": String(data.number || "N/A"),
       "{{title}}": data.title || "No Title",
@@ -86,7 +83,6 @@ export function generateEmailHtml(data: EmailData | null | undefined): string {
       "{{url}}": data.url || "#",
     };
 
-
     for (const [key, value] of Object.entries(replacements)) {
       html = html.split(key).join(value);
     }
@@ -98,11 +94,10 @@ export function generateEmailHtml(data: EmailData | null | undefined): string {
   }
 }
 
-
 export async function sendEmail(
-  htmlContent: string, 
-  issueNumber: string | number, 
-  repo: string
+  htmlContent: string,
+  issueNumber: string | number,
+  repo: string,
 ): Promise<{ success: boolean; messageId?: string; error?: string }> {
   try {
     const mailOptions = {

@@ -1,7 +1,7 @@
-import { jest } from '@jest/globals';
-import fs from 'fs';
+import { jest } from "@jest/globals";
+import fs from "fs";
 
-const mockGenerateContent = jest.fn() as jest.Mock<any>; 
+const mockGenerateContent = jest.fn() as jest.Mock<any>;
 const mockGetGenerativeModel = jest.fn().mockReturnValue({
   generateContent: mockGenerateContent,
 }) as jest.Mock<any>;
@@ -12,10 +12,11 @@ jest.unstable_mockModule("@google/generative-ai", () => ({
   })),
 }));
 
-const { generateClientDescription } = await import("../src/services/aiService.js");
+const { generateClientDescription } =
+  await import("../src/services/aiService.js");
 
 describe("FEATURE: Client-Friendly Description Generation", () => {
-  const readFileSyncSpy = jest.spyOn(fs, 'readFileSync');
+  const readFileSyncSpy = jest.spyOn(fs, "readFileSync");
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -34,7 +35,9 @@ describe("FEATURE: Client-Friendly Description Generation", () => {
     const result = await generateClientDescription("messy tech notes");
 
     expect(result).toBe("This is a professional summary.");
-    expect(mockGetGenerativeModel).toHaveBeenCalledWith({ model: "gemini-2.0-flash" });
+    expect(mockGetGenerativeModel).toHaveBeenCalledWith({
+      model: "gemini-2.0-flash",
+    });
   });
 
   test("GIVEN AI model fails, WHEN generated, THEN it should return cleaned original text", async () => {
@@ -47,7 +50,9 @@ describe("FEATURE: Client-Friendly Description Generation", () => {
   });
 
   test("GIVEN prompt.txt is missing, WHEN generated, THEN it should use fallback template", async () => {
-    readFileSyncSpy.mockImplementation(() => { throw new Error("FS Error"); });
+    readFileSyncSpy.mockImplementation(() => {
+      throw new Error("FS Error");
+    });
     mockGenerateContent.mockResolvedValue({
       response: { text: () => "Summary from fallback" },
     });
