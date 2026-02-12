@@ -4,15 +4,25 @@ import config from "../config/config.js";
 const API_KEY = config.PIPEDRIVE_API_KEY;
 const BASE_URL = "https://api.pipedrive.com/v1";
 
-function getCleanRepoName(repoPath: string | undefined): string {
-  if (!repoPath || repoPath === "N/A") return "General-Issues";
-  return repoPath.split('/').pop() || repoPath;
+interface PipedriveDealResponse {
+  success: boolean;
+  data: {
+    id: number;
+    [key: string]: any;
+  };
 }
 
-async function getOrganizationByRepo(repoName: string): Promise<{ id: number; name: string }> {
+function getCleanRepoName(repoPath: string | undefined): string {
+  if (!repoPath || repoPath === "N/A") return "General-Issues";
+  return repoPath.split("/").pop() || repoPath;
+}
+
+async function getOrganizationByRepo(
+  repoName: string,
+): Promise<{ id: number; name: string }> {
   const cleanName = getCleanRepoName(repoName);
-  const searchUrl = `${BASE_URL}/organizations/search?term=${encodeURIComponent(cleanName)}&fields=name&api_token=${API_KEY}`;
-  
+  const searchUrl = `${BASE_URL}/organizations/search?term=${encodeURIComponent(cleanName)}&fields=name&exact_match=true&api_token=${API_KEY}`;
+
   const searchRes = await fetch(searchUrl);
   const searchData = (await searchRes.json()) as any;
 
@@ -21,76 +31,103 @@ async function getOrganizationByRepo(repoName: string): Promise<{ id: number; na
     return { id: org.id, name: org.name };
   }
 
-  const createRes = await fetch(`${BASE_URL}/organizations?api_token=${API_KEY}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name: cleanName, visible_to: "3" }),
-  });
+  const createRes = await fetch(
+    `${BASE_URL}/organizations?api_token=${API_KEY}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: cleanName, visible_to: "3" }),
+    },
+  );
   const newData = (await createRes.json()) as any;
   return { id: newData.data.id, name: newData.data.name };
 }
 
-export async function createPipedriveDeal(processedData: Partial<ExtractedIssue>) {
+export async function createPipedriveDeal(
+  processedData: Partial<ExtractedIssue>,
+): Promise<PipedriveDealResponse> {
   try {
     const customerEmail = config.CUSTOMER_EMAIL;
-    if (!customerEmail) throw new Error("CUSTOMER_EMAIL missing");
+    if (!customerEmail) throw new Error("CUSTOMER_EMAIL missing in config");
 
-    const organization = await getOrganizationByRepo(processedData.repo || "N/A");
+    const personSearchUrl = `${BASE_URL}/persons/search?term=${encodeURIComponent(customerEmail)}&fields=email&api_token=${API_KEY}`;
+    const personSearchRes = await fetch(personSearchUrl);
+    const personSearchData = (await personSearchRes.json()) as any;
 
-    const personSearch = await fetch(`${BASE_URL}/persons/search?term=${encodeURIComponent(customerEmail)}&fields=email&api_token=${API_KEY}`);
-    const personData = (await personSearch.json()) as any;
+    let personId: number | null = null;
+    let organizationId: number | null = null;
+    let resolvedPersonName: string = "Valued Customer";
 
-    let personId: number;
-    if (personData.data?.items?.length > 0) {
-      personId = personData.data.items[0].item.id;
+    if (personSearchData.data?.items?.length > 0) {
+      const personItem = personSearchData.data.items[0].item;
+      personId = personItem.id;
+      organizationId = personItem.organization?.id || null;
+      resolvedPersonName = personItem.name;
+    }
+
+    //Resolve Organization
+    if (!organizationId) {
+      const organization = await getOrganizationByRepo(
+        processedData.repo || "N/A",
+      );
+      organizationId = organization.id;
+    }
+
+    // Ensure the Person is created or updated
+    if (!personId) {
+      const createPersonRes = await fetch(
+        `${BASE_URL}/persons?api_token=${API_KEY}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: resolvedPersonName,
+            email: [customerEmail],
+            org_id: organizationId,
+          }),
+        },
+      );
+      const newPersonData = (await createPersonRes.json()) as any;
+      personId = newPersonData.data.id;
+    } else {
+      // Sync the existing person to the Organization
       await fetch(`${BASE_URL}/persons/${personId}?api_token=${API_KEY}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ org_id: organization.id }),
+        body: JSON.stringify({ org_id: organizationId }),
       });
-    } else {
-      const createPerson = await fetch(`${BASE_URL}/persons?api_token=${API_KEY}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          name: processedData.author || "GitHub Reporter", 
-          email: [customerEmail], 
-          org_id: organization.id 
-        }),
-      });
-      personId = ((await createPerson.json()) as any).data.id;
     }
 
-    const managerRes = await fetch(`${BASE_URL}/users/find?term=${encodeURIComponent(config.EMAIL_USER || "")}&api_token=${API_KEY}`);
-    const managerData = (await managerRes.json()) as any;
-    const managerId = managerData.data?.[0]?.id || null;
-
-    const dealTitle = `${processedData.title} | ${organization.name}`;
+    // Create the Deal
     const dealRes = await fetch(`${BASE_URL}/deals?api_token=${API_KEY}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        title: dealTitle,
+        title: `${processedData.title}`,
         person_id: personId,
-        org_id: organization.id,
-        user_id: managerId,
-        visible_to: "3"
+        org_id: organizationId,
+        visible_to: "3",
       }),
     });
 
-    const result = (await dealRes.json()) as any;
+    const result = (await dealRes.json()) as PipedriveDealResponse;
 
-    if (result.success && (processedData.fullDescription || processedData.comment)) {
+    // Add Description/Comment as a Note
+    if (
+      result.success &&
+      (processedData.fullDescription || processedData.comment)
+    ) {
       await fetch(`${BASE_URL}/notes?api_token=${API_KEY}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           content: processedData.fullDescription || processedData.comment,
-          deal_id: result.data.id
+          deal_id: result.data.id,
         }),
       });
     }
 
+    console.log(`[PIPEDRIVE] Deal successfully created: ID ${result.data?.id}`);
     return result;
   } catch (error) {
     console.error("[PIPEDRIVE ERROR]", error);

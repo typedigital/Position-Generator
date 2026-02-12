@@ -9,85 +9,78 @@ jest.unstable_mockModule("../src/config/config.js", () => ({
   },
 }));
 
-
 global.fetch = jest.fn() as any;
 const mockedFetch = global.fetch as jest.Mock<any>;
 
+const { createPipedriveDeal } =
+  await import("../src/services/pipedriveService.js");
 
-const { createPipedriveDeal } = await import("../src/services/pipedriveService.js");
-
-describe("FEATURE: Pipedrive Deal Creation", () => {
+describe("FEATURE: Pipedrive Deal Creation & Integration", () => {
   beforeEach(() => {
     mockedFetch.mockClear();
   });
 
-  test("SCENARIO: Successfully create deal with proper organization and person links", async () => {
-    // GIVEN
+  describe("SCENARIO: Successful Creation Waterfall", () => {
+    test("GIVEN existing Pipedrive records, WHEN createPipedriveDeal is called, THEN it should link and create the deal", async () => {
+      // GIVEN: Sequential mocks matching service logic
+      mockedFetch
+        .mockResolvedValueOnce({
+          // 1. Person Search
+          json: async () => ({
+            success: true,
+            data: {
+              items: [{ item: { id: 1001, organization: { id: 200 } } }],
+            },
+          }),
+        })
+        .mockResolvedValueOnce({
+          // 2. Person Update (PUT)
+          json: async () => ({ success: true }),
+        })
+        .mockResolvedValueOnce({
+          // 3. Deal Create
+          json: async () => ({ success: true, data: { id: 500 } }),
+        })
+        .mockResolvedValueOnce({
+          // 4. Note Create
+          json: async () => ({ success: true }),
+        });
 
-    mockedFetch
-      .mockResolvedValueOnce({ // 1. Org Search
-        json: async () => ({ success: true, data: { items: [{ item: { id: 200, name: "PosGenTS" } }] } }) 
-      })
-      .mockResolvedValueOnce({ // 2. Person Search
-        json: async () => ({ success: true, data: { items: [{ item: { id: 1001 } }] } }) 
-      })
-      .mockResolvedValueOnce({ // 3. Person Update (PUT)
-        json: async () => ({ success: true }) 
-      })
-      .mockResolvedValueOnce({ // 4. Manager Search
-        json: async () => ({ success: true, data: [{ id: 8877 }] }) 
-      })
-      .mockResolvedValueOnce({ // 5. Deal Create
-        json: async () => ({ success: true, data: { id: 500 } }) 
-      })
-      .mockResolvedValueOnce({ // 6. Note Create
-        json: async () => ({ success: true }) 
-      });
+      const inputData: ExtractedIssue = {
+        title: "Fix logic",
+        number: 42,
+        fullDescription: "AI text description",
+        author: "vasian",
+        repo: "vasian/PosGenTS",
+      } as any;
 
-    
-    const inputData: ExtractedIssue = {
-      title: "Fix logic",
-      number: 42,
-      fullDescription: "AI text description",
-      status: "open",
-      author: "vasian",
-      repo: "vasian/PosGenTS",
-      url: "https://github.com/vasian/PosGenTS/issues/42",
-      created: "2024-02-11T00:00:00Z",
-      labels: "bug",
-      assignees: "none",
-      comment: "Fix this ASAP"
-    };
+      // WHEN
+      const result = await createPipedriveDeal(inputData);
 
-    // --- WHEN ---
-   
-    const result = await createPipedriveDeal(inputData);
+      // THEN
+      expect(result.success).toBe(true);
+      expect(result.data.id).toBe(500);
 
-    // --- THEN ---
-   
-    expect(result).toBeDefined();
-    expect(result.success).toBe(true);
-    expect(result.data.id).toBe(500);
+      // FIX for TS2571: Cast the call to 'any' to access the body
+      const dealCall = mockedFetch.mock.calls.find((c) =>
+        (c[0] as string).includes("/deals"),
+      );
 
-    const orgSearchCall = mockedFetch.mock.calls[0];
-    expect(orgSearchCall[0]).toContain("term=PosGenTS");
+      if (dealCall) {
+        const options = dealCall[1] as any; // Cast to any to access .body
+        const dealBody = JSON.parse(options.body);
+        expect(dealBody.person_id).toBe(1001);
+        expect(dealBody.org_id).toBe(200);
+      } else {
+        throw new Error("Deal creation API call not found");
+      }
+    });
+  });
 
-   
-    const personUpdateCall = mockedFetch.mock.calls.find(
-      (call: any) => call[1]?.method === "PUT"
-    );
-    expect(personUpdateCall).toBeDefined();
-    const updateBody = JSON.parse((personUpdateCall![1] as any).body);
-    expect(updateBody.org_id).toBe(200);
-
-    
-    const dealCall = mockedFetch.mock.calls.find(
-      (call: any) => call[1]?.method === "POST" && call[0].includes("/deals")
-    );
-    expect(dealCall).toBeDefined();
-    const dealBody = JSON.parse((dealCall![1] as any).body);
-    expect(dealBody.person_id).toBe(1001);
-    expect(dealBody.org_id).toBe(200);
-    expect(dealBody.user_id).toBe(8877);
+  describe("SCENARIO: Error Handling", () => {
+    test("GIVEN a network failure, WHEN createPipedriveDeal is called, THEN it should throw an error", async () => {
+      mockedFetch.mockRejectedValueOnce(new Error("API Down"));
+      await expect(createPipedriveDeal({} as any)).rejects.toThrow("API Down");
+    });
   });
 });
