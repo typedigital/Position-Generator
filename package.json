@@ -1,28 +1,28 @@
 {
-  "name": "github-webhook-handler",
+  "name": "posgents",
   "version": "1.0.0",
-  "description": "GitHub webhook handler with security",
-  "main": "index.js",
+  "type": "module",
+  "main": "dist/index.js",
   "scripts": {
-    "start": "node index.js",
-    "test": "jest"
-  },
-  "keywords": [
-    "webhook",
-    "github",
-    "security"
-  ],
-  "author": "",
-  "license": "ISC",
-  "dependencies": {
-    "@google/generative-ai": "^0.24.1",
-    "dotenv": "^16.6.1",
-    "express": "^5.2.1",
-    "nodemailer": "^8.0.0"
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js"
   },
   "devDependencies": {
+    "@types/jest": "^29.5.0",
+    "@types/node": "^25.2.2",
+    "@types/nodemailer": "^6.4.17",
+    "@types/supertest": "^6.0.3",
     "jest": "^29.7.0",
-    "nock": "^14.0.10",
-    "supertest": "^7.2.2"
+    "supertest": "^7.2.2",
+    "ts-jest": "^29.2.5",
+    "tsx": "^4.21.0",
+    "typescript": "^5.7.0"
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.21.0",
+    "dotenv": "^16.4.7",
+    "nodemailer": "^6.10.0",
+    "pipedrive": "^31.2.1"
   }
 }
