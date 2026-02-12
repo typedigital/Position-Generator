@@ -91,7 +91,6 @@ export async function createPipedriveDeal(processedData: Partial<ExtractedIssue>
       });
     }
 
-    console.log(`[PIPEDRIVE] Success: Deal created for ${organization.name}`);
     return result;
   } catch (error) {
     console.error("[PIPEDRIVE ERROR]", error);
