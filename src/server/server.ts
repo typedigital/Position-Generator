@@ -44,7 +44,7 @@ export async function handleRequest(req: IncomingMessage, res: ServerResponse): 
 
         if (eventType === 'issues' && rawJson.action === 'opened') {
             try {
-                await createPipedriveDeal(processedData);
+                await createPipedriveDeal(processedData as any);
             } catch (pError: any) {
                 console.error(`[PIPEDRIVE ERROR] ${pError.message}`);
                

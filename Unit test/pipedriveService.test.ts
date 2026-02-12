@@ -1,4 +1,5 @@
 import { jest, describe, test, expect, beforeEach } from "@jest/globals";
+import type { ExtractedIssue } from "../src/utils/githubData.js";
 
 jest.unstable_mockModule("../src/config/config.js", () => ({
   default: {
@@ -8,107 +9,85 @@ jest.unstable_mockModule("../src/config/config.js", () => ({
   },
 }));
 
-jest.unstable_mockModule("../src/services/aiService.js", () => ({
-  generateClientDescription: jest
-    .fn<() => Promise<string>>()
-    .mockResolvedValue("Mocked AI description"),
-}));
 
 global.fetch = jest.fn() as any;
 const mockedFetch = global.fetch as jest.Mock<any>;
 
-// Import the service AFTER mocks are set up
-const { createPipedriveDeal } =
-  await import("../src/services/pipedriveService.js");
 
-describe("FEATURE: Pipedrive Deal Creation with Dynamic Manager Name", () => {
+const { createPipedriveDeal } = await import("../src/services/pipedriveService.js");
+
+describe("FEATURE: Pipedrive Deal Creation", () => {
   beforeEach(() => {
     mockedFetch.mockClear();
   });
 
-  test("SCENARIO: Successfully create a person using the manager's name and link it to a new deal", async () => {
+  test("SCENARIO: Successfully create deal with proper organization and person links", async () => {
+    // GIVEN
+
     mockedFetch
-
-      .mockResolvedValueOnce({
-        json: async () => ({
-          success: true,
-          data: [{ id: 8877, name: "Vasian Manager" }],
-        }),
+      .mockResolvedValueOnce({ // 1. Org Search
+        json: async () => ({ success: true, data: { items: [{ item: { id: 200, name: "PosGenTS" } }] } }) 
       })
-
-      .mockResolvedValueOnce({
-        json: async () => ({
-          success: true,
-          data: { items: [] },
-        }),
+      .mockResolvedValueOnce({ // 2. Person Search
+        json: async () => ({ success: true, data: { items: [{ item: { id: 1001 } }] } }) 
       })
-
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          success: true,
-          data: { id: 1001 },
-        }),
+      .mockResolvedValueOnce({ // 3. Person Update (PUT)
+        json: async () => ({ success: true }) 
       })
-
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          success: true,
-          data: { id: 500 },
-        }),
+      .mockResolvedValueOnce({ // 4. Manager Search
+        json: async () => ({ success: true, data: [{ id: 8877 }] }) 
       })
-
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ success: true }),
+      .mockResolvedValueOnce({ // 5. Deal Create
+        json: async () => ({ success: true, data: { id: 500 } }) 
+      })
+      .mockResolvedValueOnce({ // 6. Note Create
+        json: async () => ({ success: true }) 
       });
 
-    const inputData = {
-      title: "New",
-      fullDescription: "AI generated text",
+    
+    const inputData: ExtractedIssue = {
+      title: "Fix logic",
+      number: 42,
+      fullDescription: "AI text description",
+      status: "open",
+      author: "vasian",
+      repo: "vasian/PosGenTS",
+      url: "https://github.com/vasian/PosGenTS/issues/42",
+      created: "2024-02-11T00:00:00Z",
+      labels: "bug",
+      assignees: "none",
+      comment: "Fix this ASAP"
     };
 
-    // WHEN
+    // --- WHEN ---
+   
     const result = await createPipedriveDeal(inputData);
 
-    // THEN
+    // --- THEN ---
+   
+    expect(result).toBeDefined();
+    expect(result.success).toBe(true);
     expect(result.data.id).toBe(500);
 
-    // AND
-    const personCreateCall = mockedFetch.mock.calls.find(
-      (call: any) => call[1]?.method === "POST" && call[0].includes("/persons"),
-    ) as [string, RequestInit] | undefined;
+    const orgSearchCall = mockedFetch.mock.calls[0];
+    expect(orgSearchCall[0]).toContain("term=PosGenTS");
 
-    expect(personCreateCall).toBeDefined();
-    if (personCreateCall && personCreateCall[1]?.body) {
-      const personBody = JSON.parse(personCreateCall[1].body as string);
+   
+    const personUpdateCall = mockedFetch.mock.calls.find(
+      (call: any) => call[1]?.method === "PUT"
+    );
+    expect(personUpdateCall).toBeDefined();
+    const updateBody = JSON.parse((personUpdateCall![1] as any).body);
+    expect(updateBody.org_id).toBe(200);
 
-      expect(personBody.name).toBe("Vasian Manager");
-      expect(personBody.email).toContain("client@example.com");
-    }
-
-    // AND
-    const dealCreateCall = mockedFetch.mock.calls.find(
-      (call: any) => call[1]?.method === "POST" && call[0].includes("/deals"),
-    ) as [string, RequestInit] | undefined;
-
-    expect(dealCreateCall).toBeDefined();
-    if (dealCreateCall && dealCreateCall[1]?.body) {
-      const dealBody = JSON.parse(dealCreateCall[1].body as string);
-      expect(dealBody.person_id).toBe(1001);
-      expect(dealBody.user_id).toBe(8877);
-      expect(dealBody.title).toBe("New");
-    }
-
-    // AND
-    const noteCreateCall = mockedFetch.mock.calls.find(
-      (call: any) => call[1]?.method === "POST" && call[0].includes("/notes"),
-    ) as [string, RequestInit] | undefined;
-
-    if (noteCreateCall && noteCreateCall[1]?.body) {
-      const noteBody = JSON.parse(noteCreateCall[1].body as string);
-      expect(noteBody.content).toBe("AI generated text");
-    }
+    
+    const dealCall = mockedFetch.mock.calls.find(
+      (call: any) => call[1]?.method === "POST" && call[0].includes("/deals")
+    );
+    expect(dealCall).toBeDefined();
+    const dealBody = JSON.parse((dealCall![1] as any).body);
+    expect(dealBody.person_id).toBe(1001);
+    expect(dealBody.org_id).toBe(200);
+    expect(dealBody.user_id).toBe(8877);
   });
 });
