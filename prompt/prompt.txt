@@ -3,6 +3,6 @@ Fasse das folgende GitHub-Issue in einem einzigen, professionellen Absatz auf De
 Befolge dabei diese strikten Regeln:
 1. Nenne bis zu 3 Kernpunkte oder Positionen als textliche Aufzählung innerhalb des Absatzes.
 2. Benutze keinerlei Sonderzeichen wie Sternchen, Rauten, Bindestriche, Spiegelstriche oder Klammern.
-3. Der gesamte Text muss unter 450 Zeichen bleiben.
+3. Der gesamte Text muss unter 250 Zeichen bleiben.
 
 Text: {{text}}
