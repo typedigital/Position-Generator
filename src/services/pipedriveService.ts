@@ -12,9 +12,7 @@ interface PipedriveDealResponse {
   };
 }
 
-/**
- * Finds a custom field by name and ensures it is visible in the UI.
- */
+
 async function getExistingFieldHash(fieldName: string): Promise<string | null> {
   try {
     const res = await fetch(`${BASE_URL}/dealFields?api_token=${API_KEY}`);
@@ -22,7 +20,7 @@ async function getExistingFieldHash(fieldName: string): Promise<string | null> {
     const field = json.data?.find((f: any) => f.name === fieldName);
 
     if (field) {
-      // Updates field to be "Important" and "Visible" in the detail view
+      
       await fetch(`${BASE_URL}/dealFields/${field.id}?api_token=${API_KEY}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -40,9 +38,7 @@ async function getExistingFieldHash(fieldName: string): Promise<string | null> {
   }
 }
 
-/**
- * Finds or creates an organization based on the repository name.
- */
+
 async function getOrganizationByRepo(repoName: string): Promise<{ id: number; name: string }> {
   const cleanName = repoName.split("/").pop() || repoName;
   const searchUrl = `${BASE_URL}/organizations/search?term=${encodeURIComponent(cleanName)}&fields=name&exact_match=true&api_token=${API_KEY}`;
@@ -68,14 +64,14 @@ export async function createPipedriveDeal(processedData: Partial<ExtractedIssue>
   try {
     const customerEmail = config.CUSTOMER_EMAIL;
 
-    // 1. Get Custom Field Hashes
+    
     const detailsHash = await getExistingFieldHash("Details");
     const sourceHash = await getExistingFieldHash("Source channel ID");
 
-    // 2. Get/Create Organization
+   
     const organization = await getOrganizationByRepo(processedData.repo || "N/A");
 
-    // 3. Get/Create Person
+   
     const personSearchUrl = `${BASE_URL}/persons/search?term=${encodeURIComponent(customerEmail || "")}&fields=email&api_token=${API_KEY}`;
     const personSearchRes = await fetch(personSearchUrl);
     const personSearchData = (await personSearchRes.json()) as any;
@@ -96,7 +92,7 @@ export async function createPipedriveDeal(processedData: Partial<ExtractedIssue>
       personId = newPersonData.data.id;
     }
 
-    // 4. Construct Deal Payload
+    // Construct Deal Payload
     const dealPayload: any = {
       title: `${processedData.title}`,
       person_id: personId,
@@ -111,11 +107,10 @@ export async function createPipedriveDeal(processedData: Partial<ExtractedIssue>
     }
 
     if (sourceHash) {
-      // Since "Source channel ID" is a TEXT field, we send the string directly
       dealPayload[sourceHash] = "GitHub"; 
     }
 
-    // 5. Create Deal
+    // Create Deal
     const dealRes = await fetch(`${BASE_URL}/deals?api_token=${API_KEY}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
