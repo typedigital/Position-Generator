@@ -12,33 +12,36 @@ interface PipedriveDealResponse {
   };
 }
 
-async function getCustomerLabelId(): Promise<number | null> {
+async function getExistingFieldHash(fieldName: string): Promise<string | null> {
   try {
-    const res = await fetch(`${BASE_URL}/personFields?api_token=${API_KEY}`);
+    const res = await fetch(`${BASE_URL}/dealFields?api_token=${API_KEY}`);
     const json = (await res.json()) as any;
-    if (!json.success) return null;
+    const field = json.data?.find((f: any) => f.name === fieldName);
 
-    const labelField = json.data.find((f: any) => f.key === "label");
-    const customerOption = labelField?.options?.find(
-      (opt: any) => opt.label === "Customer",
-    );
-    return customerOption ? Number(customerOption.id) : null;
-  } catch {
+    if (field) {
+      // This ensures the field is active and pinned in your sidebar
+      await fetch(`${BASE_URL}/dealFields/${field.id}?api_token=${API_KEY}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          important_flag: true,
+          visible_in_detail_view: true,
+        }),
+      });
+      return field.key;
+    }
+    return null;
+  } catch (error) {
+    console.error(`[PIPEDRIVE] Error finding field ${fieldName}:`, error);
     return null;
   }
-}
-
-function getCleanRepoName(repoPath: string | undefined): string {
-  if (!repoPath || repoPath === "N/A") return "General-Issues";
-  return repoPath.split("/").pop() || repoPath;
 }
 
 async function getOrganizationByRepo(
   repoName: string,
 ): Promise<{ id: number; name: string }> {
-  const cleanName = getCleanRepoName(repoName);
+  const cleanName = repoName.split("/").pop() || repoName;
   const searchUrl = `${BASE_URL}/organizations/search?term=${encodeURIComponent(cleanName)}&fields=name&exact_match=true&api_token=${API_KEY}`;
-
   const searchRes = await fetch(searchUrl);
   const searchData = (await searchRes.json()) as any;
 
@@ -64,41 +67,18 @@ export async function createPipedriveDeal(
 ): Promise<PipedriveDealResponse> {
   try {
     const customerEmail = config.CUSTOMER_EMAIL;
-    if (!customerEmail) throw new Error("CUSTOMER_EMAIL missing in config");
 
-    //  Get the Label ID for "Customer"
-    const labelId = await getCustomerLabelId();
+    const detailsHash = await getExistingFieldHash("Details");
 
-    const personSearchUrl = `${BASE_URL}/persons/search?term=${encodeURIComponent(customerEmail)}&fields=email&api_token=${API_KEY}`;
+    const organization = await getOrganizationByRepo(
+      processedData.repo || "N/A",
+    );
+
+    const personSearchUrl = `${BASE_URL}/persons/search?term=${encodeURIComponent(customerEmail || "")}&fields=email&api_token=${API_KEY}`;
     const personSearchRes = await fetch(personSearchUrl);
     const personSearchData = (await personSearchRes.json()) as any;
 
-    let personId: number | null = null;
-    let organizationId: number | null = null;
-
-    let resolvedPersonName: string = "Valued Customer";
-
-    if (personSearchData.data?.items?.length > 0) {
-      const personItem = personSearchData.data.items[0].item;
-      personId = personItem.id;
-      organizationId = personItem.organization?.id || null;
-      resolvedPersonName = personItem.name || resolvedPersonName;
-    }
-
-    if (!organizationId) {
-      const organization = await getOrganizationByRepo(
-        processedData.repo || "N/A",
-      );
-      organizationId = organization.id;
-    }
-
-    // Create or Update Person (Adding the Label)
-    const personPayload = {
-      name: resolvedPersonName,
-      email: [customerEmail],
-      org_id: organizationId,
-      label: labelId,
-    };
+    let personId = personSearchData.data?.items?.[0]?.item?.id;
 
     if (!personId) {
       const createPersonRes = await fetch(
@@ -106,52 +86,41 @@ export async function createPipedriveDeal(
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(personPayload),
+          body: JSON.stringify({
+            name: "Vasian",
+            email: [customerEmail],
+            org_id: organization.id,
+          }),
         },
       );
       const newPersonData = (await createPersonRes.json()) as any;
       personId = newPersonData.data.id;
-    } else {
-      await fetch(`${BASE_URL}/persons/${personId}?api_token=${API_KEY}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          org_id: organizationId,
-          label: labelId,
-        }),
-      });
     }
 
-    // Create the Deal
+    const dealPayload: any = {
+      title: `${processedData.title}`,
+      person_id: personId,
+      org_id: organization.id,
+      visible_to: "3",
+      status: "open",
+    };
+
+    if (detailsHash) {
+      dealPayload[detailsHash] =
+        processedData.fullDescription || "No description provided.";
+    }
+
     const dealRes = await fetch(`${BASE_URL}/deals?api_token=${API_KEY}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        title: `${processedData.title}`,
-        person_id: personId,
-        org_id: organizationId,
-        visible_to: "3",
-      }),
+      body: JSON.stringify(dealPayload),
     });
 
     const result = (await dealRes.json()) as PipedriveDealResponse;
+    console.log(
+      `[PIPEDRIVE] Successfully mapped to existing "Source Channel" field.`,
+    );
 
-    // Add Note
-    if (
-      result.success &&
-      (processedData.fullDescription || processedData.comment)
-    ) {
-      await fetch(`${BASE_URL}/notes?api_token=${API_KEY}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          content: processedData.fullDescription || processedData.comment,
-          deal_id: result.data.id,
-        }),
-      });
-    }
-
-    console.log(`[PIPEDRIVE] Deal successfully created: ID ${result.data?.id}`);
     return result;
   } catch (error) {
     console.error("[PIPEDRIVE ERROR]", error);
